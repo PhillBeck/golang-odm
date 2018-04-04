@@ -17,8 +17,7 @@ type TestType struct {
 }
 
 func TestRepo(t *testing.T) {
-	odm.MongoHost = "localhost"
-	odm.MongoPort = "27000"
+	odm.MongodbURI = "localhost:27000"
 	repo = odm.NewRepository("odm-test", "test")
 
 	for i := 0; i < 5; i++ {
@@ -59,6 +58,30 @@ func TestRepo(t *testing.T) {
 		if err != nil {
 			t.Errorf("%+v\n", err)
 		}
+	}
+
+	for i := 0; i < 5; i++ {
+		err := saveTest(createTest())
+		if err != nil {
+			t.Errorf("%+v\n", err)
+		}
+	}
+
+	paginatedResult, info, err := repo.Paginate(bson.M{}, 1, 1)
+	if err != nil {
+		t.Errorf("%+v\n", err)
+	}
+
+	var res1 []*TestType
+
+	err = paginatedResult.All(&res1)
+	if err != nil {
+		t.Errorf("%+v\n", err)
+	}
+
+	if len(res1) != 1 {
+		t.Errorf("%+v\n", info)
+		t.Errorf("Deu ruim: %d\n", len(res1))
 	}
 }
 

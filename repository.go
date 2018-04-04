@@ -2,19 +2,21 @@ package odm
 
 import (
 	"fmt"
+	"math"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 var mgoSession *mgo.Session
-var MongoHost, MongoPort string
+var MongodbURI string
 
 func getSession() (*mgo.Session, error) {
 	if mgoSession == nil {
 		var err error
-		mgoSession, err = mgo.Dial(MongoHost + ":" + MongoPort)
+		mgoSession, err = mgo.Dial(MongodbURI)
 		if err != nil {
+			fmt.Printf("URI: %s\n", MongodbURI)
 			return nil, err
 		}
 	}
@@ -97,4 +99,55 @@ func (r *Repository) FindOne(query bson.M, doc IEntity) error {
 	defer session.Close()
 
 	return session.DB(r.database).C(r.collection).Find(query).One(doc)
+}
+
+func (r *Repository) Paginate(query bson.M, recordsPerPage, page int) (*Query, *PaginationInfo, error) {
+	if page < 1 {
+		return nil, nil, fmt.Errorf("Invalid page. Should be > 1")
+	}
+
+	if recordsPerPage < 1 {
+		return nil, nil, fmt.Errorf("Invalid recordsPerPage. Should be > 1")
+	}
+
+	session, err := getSession()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer session.Close()
+
+	col := session.DB(r.database).C(r.collection)
+
+	numRecords, err := col.Find(query).Count()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	skip := recordsPerPage * (page - 1)
+
+	info := PaginationInfo{
+		CurrentPage:    page,
+		NumPages:       int(math.Ceil(float64(numRecords) / float64(recordsPerPage))),
+		RecordsPerPage: recordsPerPage,
+		NumRecords:     numRecords}
+
+	resultSet, err := r.Find(query)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resultSet = resultSet.Skip(skip).Limit(recordsPerPage)
+
+	return resultSet, &info, nil
+}
+
+func (r *Repository) Count(query bson.M) (int, error) {
+	session, err := getSession()
+	if err != nil {
+		return 0, err
+	}
+
+	defer session.Close()
+
+	return session.DB(r.database).C(r.collection).Find(query).Count()
 }
