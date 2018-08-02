@@ -14,7 +14,7 @@ var MongodbURI string
 func getSession() (*mgo.Session, error) {
 	if mgoSession == nil {
 		var err error
-		mgoSession, err = mgo.Dial(MongodbURI)
+		mgoSession, err = dial(MongodbURI)
 		if err != nil {
 			fmt.Printf("URI: %s\n", MongodbURI)
 			return nil, err
